@@ -1,0 +1,130 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { SimulationConfig } from '@/types/config'
+import { useSimulation } from '../composables/useSimulation'
+import SystemDiagram from '../diagram/SystemDiagram.vue'
+import ResultsTable from '../controls/ResultsTable.vue'
+
+const props = defineProps<{ config: SimulationConfig }>()
+
+const { metrics, results, running, start, stop } = useSimulation()
+
+function handleStartStop() {
+  if (running.value) {
+    stop()
+  } else {
+    start(props.config)
+  }
+}
+
+const progress = computed(() => {
+  if (!metrics.value) return 0
+  return Math.min(100, (metrics.value.currentTimeMs / props.config.totalDurationMs) * 100)
+})
+
+const elapsed = computed(() => {
+  if (!metrics.value) return '0.0s'
+  return (metrics.value.currentTimeMs / 1000).toFixed(1) + 's'
+})
+</script>
+
+<template>
+  <div class="simulation-tab">
+    <section class="controls">
+      <div class="control-fields">
+        <label>
+          Time Step (ms)
+          <input v-model.number="config.timeStepMs" type="number" min="10" step="10" :disabled="running" />
+        </label>
+        <label>
+          Total Duration (ms)
+          <input v-model.number="config.totalDurationMs" type="number" min="1000" step="1000" :disabled="running" />
+        </label>
+      </div>
+      <button :class="['action-btn', { stop: running }]" @click="handleStartStop">
+        {{ running ? 'Stop' : 'Start Simulation' }}
+      </button>
+    </section>
+
+    <section v-if="running || metrics" class="progress-section">
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{ width: progress + '%' }" />
+      </div>
+      <span class="progress-label">{{ elapsed }} / {{ (config.totalDurationMs / 1000).toFixed(1) }}s</span>
+    </section>
+
+    <SystemDiagram :config="config" :metrics="metrics" mode="simulation" />
+
+    <ResultsTable v-if="results" :results="results" />
+  </div>
+</template>
+
+<style scoped>
+.simulation-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.control-fields {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.action-btn:hover {
+  background: var(--primary-hover);
+}
+
+.action-btn.stop {
+  background: var(--danger);
+}
+
+.action-btn.stop:hover {
+  background: #dc2626;
+}
+
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.progress-label {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+</style>
