@@ -5,6 +5,8 @@ defineProps<{
   color?: string
   clickable?: boolean
   compact?: boolean
+  fillPercent?: number
+  fillColor?: string
 }>()
 
 defineEmits<{ click: [] }>()
@@ -16,14 +18,25 @@ defineEmits<{ click: [] }>()
     :style="{ '--accent': color || 'var(--primary)' }"
     @click="clickable && $emit('click')"
   >
-    <div class="box-label">{{ label }}</div>
-    <div v-if="subtitle" class="box-subtitle">{{ subtitle }}</div>
-    <slot />
+    <div
+      v-if="fillPercent != null"
+      class="fill-bar"
+      :style="{
+        height: Math.min(100, fillPercent) + '%',
+        background: fillColor || color || 'var(--primary)',
+      }"
+    />
+    <div class="box-content">
+      <div class="box-label">{{ label }}</div>
+      <div v-if="subtitle" class="box-subtitle">{{ subtitle }}</div>
+      <slot />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .component-box {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -35,6 +48,7 @@ defineEmits<{ click: [] }>()
   background: var(--surface);
   gap: 4px;
   transition: all 0.15s;
+  overflow: hidden;
 }
 
 .component-box.compact {
@@ -50,6 +64,25 @@ defineEmits<{ click: [] }>()
   background: var(--surface-2);
   box-shadow: 0 0 16px rgba(79, 109, 245, 0.15);
   transform: translateY(-1px);
+}
+
+.fill-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  opacity: 0.2;
+  transition: height 0.15s linear;
+  pointer-events: none;
+}
+
+.box-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
 }
 
 .box-label {

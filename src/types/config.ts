@@ -54,4 +54,5 @@ export interface SimulationConfig {
   bos: BosConfig
   timeStepMs: number
   totalDurationMs: number
+  batchSleepMs: number
 }

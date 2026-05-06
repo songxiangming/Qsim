@@ -7,13 +7,13 @@ import ResultsTable from '../controls/ResultsTable.vue'
 
 const props = defineProps<{ config: SimulationConfig }>()
 
-const { metrics, results, running, start, stop } = useSimulation()
+const { metrics, results, running, paused, start, stop, pause, resume } = useSimulation()
 
-function handleStartStop() {
-  if (running.value) {
-    stop()
+function handlePauseResume() {
+  if (paused.value) {
+    resume()
   } else {
-    start(props.config)
+    pause()
   }
 }
 
@@ -40,10 +40,22 @@ const elapsed = computed(() => {
           Total Duration (ms)
           <input v-model.number="config.totalDurationMs" type="number" min="1000" step="1000" :disabled="running" />
         </label>
+        <label>
+          Batch Sleep (ms)
+          <input v-model.number="config.batchSleepMs" type="number" min="0" step="10" :disabled="running" />
+        </label>
       </div>
-      <button :class="['action-btn', { stop: running }]" @click="handleStartStop">
-        {{ running ? 'Stop' : 'Start Simulation' }}
-      </button>
+      <div class="action-buttons">
+        <button v-if="!running" class="action-btn" @click="start(config)">
+          Start
+        </button>
+        <button v-if="running" :class="['action-btn', paused ? 'resume' : 'pause']" @click="handlePauseResume">
+          {{ paused ? 'Resume' : 'Pause' }}
+        </button>
+        <button v-if="running" class="action-btn stop" @click="stop">
+          Stop
+        </button>
+      </div>
     </section>
 
     <section v-if="running || metrics" class="progress-section">
@@ -52,6 +64,7 @@ const elapsed = computed(() => {
       </div>
       <span class="progress-label">{{ elapsed }} / {{ (config.totalDurationMs / 1000).toFixed(1) }}s</span>
     </section>
+    <div v-if="metrics" class="tick-label">Tick: {{ metrics.currentTimeMs }}ms</div>
 
     <SystemDiagram :config="config" :metrics="metrics" mode="simulation" />
 
@@ -92,12 +105,33 @@ const elapsed = computed(() => {
   background: var(--primary-hover);
 }
 
+.action-btn.pause {
+  background: var(--warning);
+}
+
+.action-btn.pause:hover {
+  background: #ca9a06;
+}
+
+.action-btn.resume {
+  background: var(--success);
+}
+
+.action-btn.resume:hover {
+  background: #16a34a;
+}
+
 .action-btn.stop {
   background: var(--danger);
 }
 
 .action-btn.stop:hover {
   background: #dc2626;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .progress-section {
@@ -126,5 +160,11 @@ const elapsed = computed(() => {
   font-family: var(--mono);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.tick-label {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-muted);
 }
 </style>

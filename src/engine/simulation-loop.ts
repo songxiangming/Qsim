@@ -13,6 +13,7 @@ export function runSimulation(
   onTick: (metrics: TickMetrics) => void,
   onComplete: (results: ClientResults[]) => void,
   shouldStop: () => boolean,
+  isPaused: () => boolean,
 ) {
   const tierMap = new Map<string, TierConfig>()
   for (const tier of config.tiers) tierMap.set(tier.id, tier)
@@ -41,6 +42,15 @@ export function runSimulation(
   const end = config.totalDurationMs
 
   function processBatch() {
+    if (shouldStop()) {
+      onComplete(metrics.getResults())
+      return
+    }
+    if (isPaused()) {
+      setTimeout(processBatch, 50)
+      return
+    }
+
     const batchEnd = Math.min(t + step * 50, end)
 
     while (t <= batchEnd) {
@@ -123,12 +133,13 @@ export function runSimulation(
       }
 
       t += step
+      
     }
 
     if (t > end) {
       onComplete(metrics.getResults())
     } else {
-      setTimeout(processBatch, 0)
+      setTimeout(processBatch, config.batchSleepMs)
     }
   }
 

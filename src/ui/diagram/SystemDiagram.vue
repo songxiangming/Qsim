@@ -50,18 +50,19 @@ defineEmits<{
       </template>
     </ComponentBox>
     <FlowArrow />
-    <ComponentBox
-      label="Q1"
-      :subtitle="mode === 'config' ? `depth: ${config.q1.maxDepth}` : undefined"
-      color="#22c55e"
-      compact
-      :clickable="mode === 'config'"
-      @click="$emit('componentClick', 'q1')"
-    >
-      <template v-if="mode === 'simulation' && metrics">
-        <div class="metric">{{ metrics.q1Depth }}/{{ config.q1.maxDepth }}</div>
-      </template>
-    </ComponentBox>
+    <div class="queue-wrapper">
+      <ComponentBox
+        label="Q1"
+        :subtitle="mode === 'config' ? `depth: ${config.q1.maxDepth}` : undefined"
+        color="#22c55e"
+        compact
+        :clickable="mode === 'config'"
+        :fill-percent="mode === 'simulation' && metrics ? (metrics.q1Depth / config.q1.maxDepth) * 100 : undefined"
+        fill-color="#ef4444"
+        @click="$emit('componentClick', 'q1')"
+      />
+      <div v-if="mode === 'simulation' && metrics" class="queue-depth">{{ metrics.q1Depth }}/{{ config.q1.maxDepth }}</div>
+    </div>
     <FlowArrow />
     <ComponentBox
       label="Async Proc"
@@ -75,18 +76,19 @@ defineEmits<{
       </template>
     </ComponentBox>
     <FlowArrow />
-    <ComponentBox
-      label="Q2"
-      :subtitle="mode === 'config' ? `depth: ${config.q2.maxDepth}` : undefined"
-      color="#22c55e"
-      compact
-      :clickable="mode === 'config'"
-      @click="$emit('componentClick', 'q2')"
-    >
-      <template v-if="mode === 'simulation' && metrics">
-        <div class="metric">{{ metrics.q2Depth }}/{{ config.q2.maxDepth }}</div>
-      </template>
-    </ComponentBox>
+    <div class="queue-wrapper">
+      <ComponentBox
+        label="Q2"
+        :subtitle="mode === 'config' ? `depth: ${config.q2.maxDepth}` : undefined"
+        color="#22c55e"
+        compact
+        :clickable="mode === 'config'"
+        :fill-percent="mode === 'simulation' && metrics ? (metrics.q2Depth / config.q2.maxDepth) * 100 : undefined"
+        fill-color="#ef4444"
+        @click="$emit('componentClick', 'q2')"
+      />
+      <div v-if="mode === 'simulation' && metrics" class="queue-depth">{{ metrics.q2Depth }}/{{ config.q2.maxDepth }}</div>
+    </div>
     <FlowArrow />
     <ComponentBox
       label="BOS"
@@ -129,5 +131,20 @@ defineEmits<{
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--mono);
+}
+
+.queue-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-depth {
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 </style>
