@@ -1,22 +1,36 @@
-import type { ClientConfig, WorkloadPattern } from '@/types/config'
+import type { ClientConfig } from '@/types/config'
 
 interface ClientState {
   config: ClientConfig
   accumulator: number
-  burstActiveUntilMs: number
-  nextBurstAtMs: number
+  burstStart: number
+  burstEnd: number
+  nextBurstStart: number
 }
 
 export class WorkloadGenerator {
   private clients: ClientState[] = []
 
   constructor(configs: ClientConfig[]) {
-    this.clients = configs.map((config) => ({
-      config,
-      accumulator: 0,
-      burstActiveUntilMs: 0,
-      nextBurstAtMs: this.getInitialBurstTime(config.workload),
-    }))
+    this.clients = configs.map((config) => {
+      const wl = config.workload
+      if (wl.type === 'burst') {
+        return {
+          config,
+          accumulator: 0,
+          burstStart: 0,
+          burstEnd: wl.burstDurationMs,
+          nextBurstStart: wl.burstIntervalMs,
+        }
+      }
+      return {
+        config,
+        accumulator: 0,
+        burstStart: -1,
+        burstEnd: -1,
+        nextBurstStart: Infinity,
+      }
+    })
   }
 
   generateRequests(currentTimeMs: number, timeStepMs: number): Map<string, number> {
@@ -39,17 +53,14 @@ export class WorkloadGenerator {
     const wl = client.config.workload
     if (wl.type === 'stable') return wl.requestsPerSecond
 
-    if (currentTimeMs >= client.burstActiveUntilMs && currentTimeMs >= client.nextBurstAtMs) {
-      client.burstActiveUntilMs = currentTimeMs + wl.burstDurationMs
-      client.nextBurstAtMs = currentTimeMs + wl.burstIntervalMs
+    if (currentTimeMs >= client.nextBurstStart) {
+      client.burstStart = client.nextBurstStart
+      client.burstEnd = client.burstStart + wl.burstDurationMs
+      client.nextBurstStart = client.burstStart + wl.burstIntervalMs
     }
 
-    return currentTimeMs < client.burstActiveUntilMs
+    return currentTimeMs >= client.burstStart && currentTimeMs < client.burstEnd
       ? wl.burstRequestsPerSecond
       : wl.baseRequestsPerSecond
-  }
-
-  private getInitialBurstTime(wl: WorkloadPattern): number {
-    return wl.type === 'burst' ? wl.burstIntervalMs : Infinity
   }
 }
