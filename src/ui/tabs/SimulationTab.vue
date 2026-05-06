@@ -26,6 +26,25 @@ const elapsed = computed(() => {
   if (!metrics.value) return '0.0s'
   return (metrics.value.currentTimeMs / 1000).toFixed(1) + 's'
 })
+
+const axisTicks = computed(() => {
+  const totalSec = props.config.totalDurationMs / 1000
+  const bases = [1, 2, 5]
+  let magnitude = 1
+  let interval = 1
+  outer: while (true) {
+    for (const b of bases) {
+      interval = b * magnitude
+      if (totalSec / interval <= 15) break outer
+    }
+    magnitude *= 10
+  }
+  const ticks: { sec: number; pct: number }[] = []
+  for (let s = interval; s < totalSec; s += interval) {
+    ticks.push({ sec: s, pct: (s / totalSec) * 100 })
+  }
+  return ticks
+})
 </script>
 
 <template>
@@ -58,9 +77,17 @@ const elapsed = computed(() => {
       </div>
     </section>
 
-    <section v-if="running || metrics" class="progress-section">
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: progress + '%' }" />
+    <section class="progress-section">
+      <div class="time-axis-area">
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: progress + '%' }" />
+        </div>
+        <div class="axis-ticks">
+          <div v-for="t in axisTicks" :key="t.sec" class="axis-tick" :style="{ left: t.pct + '%' }">
+            <div class="tick-mark" />
+            <span class="tick-value">{{ t.sec }}s</span>
+          </div>
+        </div>
       </div>
       <span class="progress-label">{{ elapsed }} / {{ (config.totalDurationMs / 1000).toFixed(1) }}s</span>
     </section>
@@ -136,12 +163,17 @@ const elapsed = computed(() => {
 
 .progress-section {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 }
 
-.progress-bar {
+.time-axis-area {
   flex: 1;
+  position: relative;
+}
+
+.progress-bar {
+  width: 100%;
   height: 6px;
   background: var(--surface-2);
   border-radius: 3px;
@@ -153,6 +185,32 @@ const elapsed = computed(() => {
   background: var(--primary);
   border-radius: 3px;
   transition: width 0.1s linear;
+}
+
+.axis-ticks {
+  position: relative;
+  height: 20px;
+}
+
+.axis-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tick-mark {
+  width: 1px;
+  height: 5px;
+  background: var(--text-muted);
+}
+
+.tick-value {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .progress-label {

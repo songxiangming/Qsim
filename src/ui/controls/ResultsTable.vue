@@ -15,8 +15,8 @@ defineProps<{ results: ClientResults[] }>()
           <th>Sent</th>
           <th>Successful</th>
           <th>Rejected</th>
-          <th>p50 Latency</th>
-          <th>p95 Latency</th>
+          <th>p95 HGP Latency</th>
+          <th>p95 E2E Latency</th>
         </tr>
       </thead>
       <tbody>
@@ -26,8 +26,8 @@ defineProps<{ results: ClientResults[] }>()
           <td>{{ r.totalSent.toLocaleString() }}</td>
           <td class="success">{{ r.totalSuccessful.toLocaleString() }}</td>
           <td :class="{ danger: r.totalRejected > 0 }">{{ r.totalRejected.toLocaleString() }}</td>
-          <td class="mono">{{ r.p50LatencyMs.toFixed(0) }}ms</td>
           <td class="mono">{{ r.p95LatencyMs.toFixed(0) }}ms</td>
+          <td class="mono">{{ (r.p95E2eLatencyMs / 1000).toFixed(2) }}s</td>
         </tr>
       </tbody>
     </table>

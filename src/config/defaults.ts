@@ -19,22 +19,22 @@ export function createDefaultConfig(): SimulationConfig {
         id: 'golden',
         name: 'Golden',
         averageRateLimit: { windowMs: 3600*1000, maxRequests: 50*3600 },
-        peakRateLimit: { windowMs: 1000, maxRequests: 100 },
+        peakRateLimit: { windowMs: 1000, maxRequests: 10 },
       },
     ],
     clients: [
-      // {
-      //   id: 'client-a',
-      //   name: 'Client A',
-      //   tierId: 'bronze',
-      //   workload: { type: 'stable', requestsPerSecond: 1 },
-      // },
-      // {
-      //   id: 'client-b',
-      //   name: 'Client B',
-      //   tierId: 'silver',
-      //   workload: { type: 'stable', requestsPerSecond: 2 },
-      // },
+      {
+        id: 'client-a',
+        name: 'Client A',
+        tierId: 'bronze',
+        workload: { type: 'stable', requestsPerSecond: 1 },
+      },
+      {
+        id: 'client-b',
+        name: 'Client B',
+        tierId: 'silver',
+        workload: { type: 'stable', requestsPerSecond: 2 },
+      },
       {
         id: 'client-c',
         name: 'Client C',

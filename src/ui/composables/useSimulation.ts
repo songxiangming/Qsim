@@ -62,6 +62,7 @@ export function useSimulation() {
     }
     running.value = false
     paused.value = false
+    metrics.value = null
   }
 
   onUnmounted(stop)

@@ -6,6 +6,7 @@ interface ClientRecord {
   totalSent: number
   totalRejected: number
   latencies: number[]
+  e2eLatencies: number[]
 }
 
 export class MetricsTracker {
@@ -18,6 +19,7 @@ export class MetricsTracker {
       totalSent: 0,
       totalRejected: 0,
       latencies: [],
+      e2eLatencies: [],
     })
   }
 
@@ -33,10 +35,15 @@ export class MetricsTracker {
     this.records.get(clientId)!.latencies.push(latencyMs)
   }
 
+  recordE2eLatency(clientId: string, latencyMs: number) {
+    this.records.get(clientId)!.e2eLatencies.push(latencyMs)
+  }
+
   getResults(): ClientResults[] {
     const results: ClientResults[] = []
     for (const [clientId, rec] of this.records) {
       const sorted = rec.latencies.slice().sort((a, b) => a - b)
+      const sortedE2e = rec.e2eLatencies.slice().sort((a, b) => a - b)
       results.push({
         clientId,
         clientName: rec.clientName,
@@ -44,8 +51,8 @@ export class MetricsTracker {
         totalSent: rec.totalSent,
         totalSuccessful: sorted.length,
         totalRejected: rec.totalRejected,
-        p50LatencyMs: percentile(sorted, 0.5),
         p95LatencyMs: percentile(sorted, 0.95),
+        p95E2eLatencyMs: percentile(sortedE2e, 0.95),
       })
     }
     return results

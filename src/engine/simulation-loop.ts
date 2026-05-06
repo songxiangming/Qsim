@@ -63,6 +63,7 @@ export function runSimulation(
       const bosCompleted = bos.tick(t, step, () => q2.dequeue())
       for (const msg of bosCompleted) {
         metrics.recordLatency(msg.clientId, msg.preprocessorDoneMs! - msg.createdAtMs)
+        metrics.recordE2eLatency(msg.clientId, msg.completedAtMs! - msg.createdAtMs)
       }
 
       // 2. Async processor completed -> Q2
