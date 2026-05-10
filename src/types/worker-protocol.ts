@@ -1,8 +1,8 @@
-import type { SimulationConfig } from './config'
+import type { DAGPipelineConfig } from './config'
 import type { TickMetrics, ClientResults } from './simulation'
 
 export type MainToWorkerMessage =
-  | { type: 'START'; config: SimulationConfig }
+  | { type: 'START'; config: DAGPipelineConfig }
   | { type: 'STOP' }
   | { type: 'PAUSE' }
   | { type: 'RESUME' }

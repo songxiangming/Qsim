@@ -1,7 +1,14 @@
-import type { SimulationConfig } from '@/types/config'
+import type { DAGPipelineConfig } from '@/types/config'
 
-export function createDefaultConfig(): SimulationConfig {
+export function createDefaultConfig(): DAGPipelineConfig {
   return {
+    nodes: [
+      { id: 'gw-1',   config: { type: 'gateway' },                                          successors: ['proc-1'] },
+      { id: 'proc-1', config: { type: 'processor', name: 'Preprocessor', processingLatencyMs: 50 },               successors: ['q-1']    },
+      { id: 'q-1',    config: { type: 'queue', maxDepth: 100000 },                          successors: ['proc-2'] },
+      { id: 'proc-2', config: { type: 'processor', name: 'Async Processor', processingLatencyMs: 200 },              successors: ['proc-3'] },
+      { id: 'proc-3', config: { type: 'processor', name: 'BOS', processingLatencyMs: 100, throughputPerSecond: 5 }, successors: [] },
+    ],
     tiers: [
       {
         id: 'bronze',
@@ -18,7 +25,7 @@ export function createDefaultConfig(): SimulationConfig {
       {
         id: 'golden',
         name: 'Golden',
-        averageRateLimit: { windowMs: 3600*1000, maxRequests: 50*3600 },
+        averageRateLimit: { windowMs: 3600 * 1000, maxRequests: 50 * 3600 },
         peakRateLimit: { windowMs: 1000, maxRequests: 10 },
       },
     ],
@@ -43,18 +50,13 @@ export function createDefaultConfig(): SimulationConfig {
           type: 'burst',
           baseRequestsPerSecond: 1,
           burstRequestsPerSecond: 15,
-          burstDurationMs: 100*1000,
-          burstIntervalMs: 200*1000,  // measured as start-start
+          burstDurationMs: 100 * 1000,
+          burstIntervalMs: 200 * 1000,
         },
       },
     ],
-    preprocessor: { processingLatencyMs: 50 },
-    q1: { maxDepth: 100000 },
-    asyncProcessor: { processingLatencyMs: 200 },
-    q2: { maxDepth: 3000 },
-    bos: { throughputPerSecond: 5, processingLatencyMs: 100 },
     timeStepMs: 100,
-    totalDurationMs: 1000*1000,
+    totalDurationMs: 1000 * 1000,
     batchSleepMs: 100,
   }
 }

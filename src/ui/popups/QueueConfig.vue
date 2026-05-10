@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { QueueConfig } from '@/types/config'
+import type { PipelineNode } from '@/types/config'
 import PopupOverlay from './PopupOverlay.vue'
 
-defineProps<{ title: string; queue: QueueConfig }>()
+defineProps<{ title: string; node: PipelineNode }>()
 defineEmits<{ close: [] }>()
 </script>
 
@@ -10,7 +10,7 @@ defineEmits<{ close: [] }>()
   <PopupOverlay :title="title" @close="$emit('close')">
     <label>
       Max Queue Depth
-      <input v-model.number="queue.maxDepth" type="number" min="1" step="10" />
+      <input v-model.number="(node.config as any).maxDepth" type="number" min="1" step="10" />
     </label>
     <p class="hint">Messages exceeding max depth will be rejected (backpressure).</p>
   </PopupOverlay>

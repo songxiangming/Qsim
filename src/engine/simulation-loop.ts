@@ -1,49 +1,73 @@
-import type { SimulationConfig, TierConfig } from '@/types/config'
+import type { DAGPipelineConfig, PipelineNode } from '@/types/config'
 import type { PaymentMessage, TickMetrics, ClientResults } from '@/types/simulation'
+import type { PipelineComponent } from './pipeline-component'
 import { ApiGateway } from './components/api-gateway'
-import { Preprocessor } from './components/preprocessor'
+import { Processor } from './components/processor'
 import { BoundedQueue } from './components/queue'
-import { AsyncProcessor } from './components/async-processor'
-import { Bos } from './components/bos'
-import { WorkloadGenerator } from './client-workload'
 import { MetricsTracker } from './metrics-tracker'
+import { toposort } from './dag'
+
+function createComponent(
+  node: PipelineNode,
+  config: DAGPipelineConfig,
+  tracker: MetricsTracker,
+): PipelineComponent {
+  switch (node.config.type) {
+    case 'gateway': {
+      const tierMap = new Map(config.tiers.map((t) => [t.id, t]))
+      return new ApiGateway(node.id, tierMap, config.clients, tracker)
+    }
+    case 'processor':
+      return new Processor(node.id, node.config)
+    case 'queue':
+      return new BoundedQueue(node.id, node.config)
+  }
+}
+
+function hgpLatency(msg: PaymentMessage, topsortOrder: string[], nodeMap: Map<string, PipelineNode>): number {
+  let syncProcessorId: string | null = null
+  for (const id of topsortOrder) {
+    const node = nodeMap.get(id)!
+    if (node.config.type === 'queue') break
+    if (node.config.type === 'processor') syncProcessorId = id
+  }
+  if (syncProcessorId && msg.nodeExitMs[syncProcessorId] !== undefined) {
+    return msg.nodeExitMs[syncProcessorId] - msg.createdAtMs
+  }
+  return 0
+}
 
 export function runSimulation(
-  config: SimulationConfig,
+  config: DAGPipelineConfig,
   onTick: (metrics: TickMetrics) => void,
   onComplete: (results: ClientResults[]) => void,
   shouldStop: () => boolean,
   isPaused: () => boolean,
 ) {
-  const tierMap = new Map<string, TierConfig>()
-  for (const tier of config.tiers) tierMap.set(tier.id, tier)
-
-  const gateway = new ApiGateway(tierMap)
-  const preprocessor = new Preprocessor(config.preprocessor)
-  const q1 = new BoundedQueue(config.q1)
-  const asyncProcessor = new AsyncProcessor(config.asyncProcessor)
-  const q2 = new BoundedQueue(config.q2)
-  const bos = new Bos(config.bos)
-  const workload = new WorkloadGenerator(config.clients)
-  const metrics = new MetricsTracker()
-
+  const tracker = new MetricsTracker()
+  const tierMap = new Map(config.tiers.map((t) => [t.id, t]))
   for (const client of config.clients) {
-    gateway.registerClient(client.id, client.tierId)
-    const tier = tierMap.get(client.tierId)!
-    metrics.registerClient(client.id, client.name, tier.name)
+    tracker.registerClient(client.id, client.name, tierMap.get(client.tierId)!.name)
   }
 
-  let msgIdCounter = 0
+  const nodeMap = new Map<string, PipelineNode>(config.nodes.map((n) => [n.id, n]))
+  const components = new Map<string, PipelineComponent>()
+  for (const node of config.nodes) {
+    components.set(node.id, createComponent(node, config, tracker))
+  }
+
+  const topsortOrder = toposort(config.nodes)
+  const reverseOrder = [...topsortOrder].reverse()
+
   let lastPostTime = 0
   const POST_INTERVAL = 16
-
   let t = 0
   const step = config.timeStepMs
   const end = config.totalDurationMs
 
   function processBatch() {
     if (shouldStop()) {
-      onComplete(metrics.getResults())
+      onComplete(tracker.getResults())
       return
     }
     if (isPaused()) {
@@ -55,90 +79,67 @@ export function runSimulation(
 
     while (t <= batchEnd) {
       if (shouldStop()) {
-        onComplete(metrics.getResults())
+        onComplete(tracker.getResults())
         return
       }
 
-      // 1. BOS: complete finished, pull from Q2
-      const bosCompleted = bos.tick(t, step, () => q2.dequeue())
-      for (const msg of bosCompleted) {
-        metrics.recordLatency(msg.clientId, msg.preprocessorDoneMs! - msg.createdAtMs)
-        metrics.recordE2eLatency(msg.clientId, msg.completedAtMs! - msg.createdAtMs)
-      }
+      for (const nodeId of reverseOrder) {
+        const node = nodeMap.get(nodeId)!
+        const comp = components.get(nodeId)!
 
-      // 2. Async processor completed -> Q2
-      const asyncDone = asyncProcessor.collectCompleted(t)
-      for (const msg of asyncDone) {
-        msg.q2EntryMs = t
-        if (!q2.enqueue(msg)) {
-          msg.rejected = true
-          msg.rejectedReason = 'q2_full'
-        }
-      }
-
-      // 3. Async processor pulls from Q1
-      let q1Msg = q1.dequeue()
-      while (q1Msg) {
-        asyncProcessor.accept(q1Msg, t)
-        q1Msg = q1.dequeue()
-      }
-
-      // 4. Preprocessor completed -> Q1
-      const preDone = preprocessor.collectCompleted(t)
-      for (const msg of preDone) {
-        msg.q1EntryMs = t
-        if (!q1.enqueue(msg)) {
-          msg.rejected = true
-          msg.rejectedReason = 'q1_full'
-        }
-      }
-
-      // 5. Generate client requests + gateway rate limiting
-      gateway.beginTick()
-      const requests = workload.generateRequests(t, step)
-      for (const [clientId, count] of requests) {
-        for (let i = 0; i < count; i++) {
-          metrics.recordSent(clientId)
-          const msg: PaymentMessage = {
-            id: msgIdCounter++,
-            clientId,
-            createdAtMs: t,
-            gatewayEntryMs: t,
-            rejected: false,
+        if (node.config.type === 'queue') {
+          const q = comp as BoundedQueue
+          for (const successorId of node.successors) {
+            const successor = components.get(successorId)!
+            while (true) {
+              const msg = q.peek()
+              if (!msg) break
+              if (!successor.receive(msg, t)) break
+              q.shiftOne(t)
+            }
           }
-          const result = gateway.checkRequest(clientId, t)
-          if (!result.allowed) {
-            msg.rejected = true
-            msg.rejectedReason = result.reason
-            metrics.recordRejected(clientId)
+        } else {
+          const output = comp.tick(t, step)
+
+          if (node.successors.length === 0) {
+            for (const msg of output) {
+              if (!msg.rejected) {
+                msg.completedAtMs = t
+                tracker.recordLatency(msg.clientId, hgpLatency(msg, topsortOrder, nodeMap))
+                tracker.recordE2eLatency(msg.clientId, t - msg.createdAtMs)
+              }
+            }
           } else {
-            preprocessor.accept(msg, t)
+            for (const successorId of node.successors) {
+              const successor = components.get(successorId)!
+              for (const msg of output) {
+                if (msg.rejected) continue
+                if (!successor.receive(msg, t)) {
+                  msg.rejected = true
+                  msg.rejectedReason = 'rate_limited'
+                  tracker.recordRejected(msg.clientId)
+                }
+              }
+            }
           }
         }
       }
 
-      // 6. Emit tick metrics (throttled)
       const now = performance.now()
       if (now - lastPostTime >= POST_INTERVAL || t >= end) {
-        onTick({
-          currentTimeMs: t,
-          gatewayTotalRejected: gateway.totalRejected,
-          gatewayRejectedThisTick: gateway.rejectedThisTick,
-          q1Depth: q1.depth,
-          q2Depth: q2.depth,
-          preprocessorInFlight: preprocessor.inFlightCount,
-          asyncProcessorInFlight: asyncProcessor.inFlightCount,
-          bosInFlight: bos.inFlightCount,
-        })
+        const nodeMetrics: TickMetrics['nodeMetrics'] = {}
+        for (const [id, comp] of components) {
+          nodeMetrics[id] = comp.metrics
+        }
+        onTick({ currentTimeMs: t, nodeMetrics })
         lastPostTime = now
       }
 
       t += step
-      
     }
 
     if (t > end) {
-      onComplete(metrics.getResults())
+      onComplete(tracker.getResults())
     } else {
       setTimeout(processBatch, config.batchSleepMs)
     }

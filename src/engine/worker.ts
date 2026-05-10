@@ -1,6 +1,7 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from '@/types/worker-protocol'
 import { runSimulation } from './simulation-loop'
 
+
 let stopped = false
 let paused = false
 

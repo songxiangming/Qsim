@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { SimulationConfig } from '@/types/config'
+import type { DAGPipelineConfig } from '@/types/config'
 import { useSimulation } from '../composables/useSimulation'
 import SystemDiagram from '../diagram/SystemDiagram.vue'
 import ResultsTable from '../controls/ResultsTable.vue'
 
-const props = defineProps<{ config: SimulationConfig }>()
+const props = defineProps<{ config: DAGPipelineConfig }>()
 
 const { metrics, results, running, paused, start, stop, pause, resume } = useSimulation()
 
 function handlePauseResume() {
-  if (paused.value) {
-    resume()
-  } else {
-    pause()
-  }
+  if (paused.value) resume()
+  else pause()
 }
 
 const progress = computed(() => {
@@ -65,15 +62,11 @@ const axisTicks = computed(() => {
         </label>
       </div>
       <div class="action-buttons">
-        <button v-if="!running" class="action-btn" @click="start(config)">
-          Start
-        </button>
+        <button v-if="!running" class="action-btn" @click="start(config)">Start</button>
         <button v-if="running" :class="['action-btn', paused ? 'resume' : 'pause']" @click="handlePauseResume">
           {{ paused ? 'Resume' : 'Pause' }}
         </button>
-        <button v-if="running" class="action-btn stop" @click="stop">
-          Stop
-        </button>
+        <button v-if="running" class="action-btn stop" @click="stop">Stop</button>
       </div>
     </section>
 
@@ -91,6 +84,7 @@ const axisTicks = computed(() => {
       </div>
       <span class="progress-label">{{ elapsed }} / {{ (config.totalDurationMs / 1000).toFixed(1) }}s</span>
     </section>
+
     <div v-if="metrics" class="tick-label">Tick: {{ metrics.currentTimeMs }}ms</div>
 
     <SystemDiagram :config="config" :metrics="metrics" mode="simulation" />
@@ -128,33 +122,13 @@ const axisTicks = computed(() => {
   transition: background 0.15s;
 }
 
-.action-btn:hover {
-  background: var(--primary-hover);
-}
-
-.action-btn.pause {
-  background: var(--warning);
-}
-
-.action-btn.pause:hover {
-  background: #ca9a06;
-}
-
-.action-btn.resume {
-  background: var(--success);
-}
-
-.action-btn.resume:hover {
-  background: #16a34a;
-}
-
-.action-btn.stop {
-  background: var(--danger);
-}
-
-.action-btn.stop:hover {
-  background: #dc2626;
-}
+.action-btn:hover { background: var(--primary-hover); }
+.action-btn.pause { background: var(--warning); }
+.action-btn.pause:hover { background: #ca9a06; }
+.action-btn.resume { background: var(--success); }
+.action-btn.resume:hover { background: #16a34a; }
+.action-btn.stop { background: var(--danger); }
+.action-btn.stop:hover { background: #dc2626; }
 
 .action-buttons {
   display: flex;

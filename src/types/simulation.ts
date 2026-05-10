@@ -2,17 +2,11 @@ export interface PaymentMessage {
   id: number
   clientId: string
   createdAtMs: number
-  gatewayEntryMs: number
-  preprocessorEntryMs?: number
-  preprocessorDoneMs?: number
-  q1EntryMs?: number
-  asyncProcessorEntryMs?: number
-  asyncProcessorDoneMs?: number
-  q2EntryMs?: number
-  bosEntryMs?: number
-  completedAtMs?: number
   rejected: boolean
-  rejectedReason?: 'rate_limit_average' | 'rate_limit_peak' | 'q1_full' | 'q2_full'
+  rejectedReason?: 'rate_limit_average' | 'rate_limit_peak' | 'queue_full' | 'rate_limited'
+  nodeEntryMs: Record<string, number>
+  nodeExitMs: Record<string, number>
+  completedAtMs?: number
 }
 
 export interface RateLimiterState {
@@ -20,15 +14,16 @@ export interface RateLimiterState {
   requestCount: number
 }
 
+export interface NodeMetrics {
+  inFlight?: number
+  depth?: number
+  totalRejected?: number
+  rejectedThisTick?: number
+}
+
 export interface TickMetrics {
   currentTimeMs: number
-  gatewayTotalRejected: number
-  gatewayRejectedThisTick: number
-  q1Depth: number
-  q2Depth: number
-  preprocessorInFlight: number
-  asyncProcessorInFlight: number
-  bosInFlight: number
+  nodeMetrics: Record<string, NodeMetrics>
 }
 
 export interface ClientResults {

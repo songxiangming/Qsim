@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import type { SimulationConfig } from './types/config'
+import type { DAGPipelineConfig } from './types/config'
 import { createDefaultConfig } from './config/defaults'
-import ConfigTab from './ui/tabs/ConfigTab.vue'
+import BuilderTab from './ui/tabs/BuilderTab.vue'
 import SimulationTab from './ui/tabs/SimulationTab.vue'
 
-const activeTab = ref<'config' | 'simulation'>('config')
-const config = reactive<SimulationConfig>(createDefaultConfig())
+const activeTab = ref<'builder' | 'simulation'>('builder')
+const config = reactive<DAGPipelineConfig>(createDefaultConfig())
+
+function onApplyBuilderConfig(newConfig: DAGPipelineConfig) {
+  Object.assign(config, newConfig)
+  config.nodes.splice(0, config.nodes.length, ...newConfig.nodes)
+  activeTab.value = 'simulation'
+}
 </script>
 
 <template>
@@ -15,10 +21,10 @@ const config = reactive<SimulationConfig>(createDefaultConfig())
       <h1>QSim</h1>
       <nav class="tab-bar">
         <button
-          :class="['tab-btn', { active: activeTab === 'config' }]"
-          @click="activeTab = 'config'"
+          :class="['tab-btn', { active: activeTab === 'builder' }]"
+          @click="activeTab = 'builder'"
         >
-          Configuration
+          Builder
         </button>
         <button
           :class="['tab-btn', { active: activeTab === 'simulation' }]"
@@ -29,7 +35,7 @@ const config = reactive<SimulationConfig>(createDefaultConfig())
       </nav>
     </header>
     <main class="app-content">
-      <ConfigTab v-if="activeTab === 'config'" :config="config" />
+      <BuilderTab v-if="activeTab === 'builder'" :config="config" @apply="onApplyBuilderConfig" />
       <SimulationTab v-else :config="config" />
     </main>
   </div>

@@ -27,31 +27,23 @@ export interface ClientConfig {
   workload: WorkloadPattern
 }
 
-export interface PreprocessorConfig {
-  processingLatencyMs: number
+export type NodeType = 'gateway' | 'processor' | 'queue'
+
+export type NodeConfig =
+  | { type: 'gateway' }
+  | { type: 'processor'; name: string; processingLatencyMs: number; throughputPerSecond?: number }
+  | { type: 'queue'; maxDepth: number }
+
+export interface PipelineNode {
+  id: string
+  config: NodeConfig
+  successors: string[]
 }
 
-export interface QueueConfig {
-  maxDepth: number
-}
-
-export interface AsyncProcessorConfig {
-  processingLatencyMs: number
-}
-
-export interface BosConfig {
-  throughputPerSecond: number
-  processingLatencyMs: number
-}
-
-export interface SimulationConfig {
+export interface DAGPipelineConfig {
+  nodes: PipelineNode[]
   tiers: TierConfig[]
   clients: ClientConfig[]
-  preprocessor: PreprocessorConfig
-  q1: QueueConfig
-  asyncProcessor: AsyncProcessorConfig
-  q2: QueueConfig
-  bos: BosConfig
   timeStepMs: number
   totalDurationMs: number
   batchSleepMs: number

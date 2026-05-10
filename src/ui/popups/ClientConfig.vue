@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { SimulationConfig, WorkloadPattern } from '@/types/config'
+import type { DAGPipelineConfig, WorkloadPattern } from '@/types/config'
 import PopupOverlay from './PopupOverlay.vue'
 
-const props = defineProps<{ config: SimulationConfig }>()
+const props = defineProps<{ config: DAGPipelineConfig }>()
 defineEmits<{ close: [] }>()
 
 function addClient() {

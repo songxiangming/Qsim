@@ -1,25 +1,39 @@
-import type { PaymentMessage } from '@/types/simulation'
-import type { QueueConfig } from '@/types/config'
+import type { PaymentMessage, NodeMetrics } from '@/types/simulation'
+import type { PipelineComponent } from '../pipeline-component'
 
-export class BoundedQueue {
+export class BoundedQueue implements PipelineComponent {
   private messages: PaymentMessage[] = []
-  private maxDepth: number
+  private readonly maxDepth: number
 
-  constructor(config: QueueConfig) {
+  constructor(
+    readonly nodeId: string,
+    config: { maxDepth: number },
+  ) {
     this.maxDepth = config.maxDepth
   }
 
-  enqueue(msg: PaymentMessage): boolean {
+  receive(msg: PaymentMessage, t: number): boolean {
     if (this.messages.length >= this.maxDepth) return false
+    msg.nodeEntryMs[this.nodeId] = t
     this.messages.push(msg)
     return true
   }
 
-  dequeue(): PaymentMessage | undefined {
-    return this.messages.shift()
+  tick(_t: number, _step: number): PaymentMessage[] {
+    return []
   }
 
-  get depth(): number {
-    return this.messages.length
+  peek(): PaymentMessage | undefined {
+    return this.messages[0]
+  }
+
+  shiftOne(t: number): PaymentMessage {
+    const msg = this.messages.shift()!
+    msg.nodeExitMs[this.nodeId] = t
+    return msg
+  }
+
+  get metrics(): NodeMetrics {
+    return { depth: this.messages.length }
   }
 }

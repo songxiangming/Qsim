@@ -1,5 +1,5 @@
 import { ref, onUnmounted } from 'vue'
-import type { SimulationConfig } from '@/types/config'
+import type { DAGPipelineConfig } from '@/types/config'
 import type { TickMetrics, ClientResults } from '@/types/simulation'
 import type { WorkerToMainMessage } from '@/types/worker-protocol'
 
@@ -10,7 +10,7 @@ export function useSimulation() {
   const paused = ref(false)
   let worker: Worker | null = null
 
-  function start(config: SimulationConfig) {
+  function start(config: DAGPipelineConfig) {
     stop()
     results.value = null
     metrics.value = null
