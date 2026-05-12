@@ -3,11 +3,11 @@ import type { DAGPipelineConfig } from '@/types/config'
 export function createDefaultConfig(): DAGPipelineConfig {
   return {
     nodes: [
-      { id: 'gw-1',   config: { type: 'gateway' },                                          successors: ['proc-1'] },
-      { id: 'proc-1', config: { type: 'processor', name: 'Preprocessor', processingLatencyMs: 50 },               successors: ['q-1']    },
-      { id: 'q-1',    config: { type: 'queue', maxDepth: 100000 },                          successors: ['proc-2'] },
-      { id: 'proc-2', config: { type: 'processor', name: 'Async Processor', processingLatencyMs: 200 },              successors: ['proc-3'] },
-      { id: 'proc-3', config: { type: 'processor', name: 'BOS', processingLatencyMs: 100, throughputPerSecond: 5 }, successors: [] },
+      { id: 'gw-1',   config: { type: 'gateway' },                                                                  successors: ['proc-1'], x: 20,   y: 80 },
+      { id: 'proc-1', config: { type: 'processor', name: 'Preprocessor', processingLatencyMs: 50 },                 successors: ['q-1'],    x: 240,  y: 80 },
+      { id: 'q-1',    config: { type: 'queue', maxDepth: 100000 },                                                  successors: ['proc-2'], x: 460,  y: 80 },
+      { id: 'proc-2', config: { type: 'processor', name: 'Async Processor', processingLatencyMs: 200 },             successors: ['proc-3'], x: 680,  y: 80 },
+      { id: 'proc-3', config: { type: 'processor', name: 'BOS', processingLatencyMs: 100, throughputPerSecond: 5 }, successors: [],         x: 900,  y: 80 },
     ],
     tiers: [
       {

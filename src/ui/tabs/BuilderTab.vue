@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, toRaw } from 'vue'
 import type { DAGPipelineConfig, PipelineNode } from '@/types/config'
 import type { BuilderNode, BuilderEdge, BuilderNodeType } from '@/types/builder'
 import { createDefaultConfig } from '@/config/defaults'
 import { toposort } from '@/engine/dag'
 import ToolboxPanel from '../builder/ToolboxPanel.vue'
 import BuilderCanvas from '../builder/BuilderCanvas.vue'
+import FileMenuBar from '../builder/FileMenuBar.vue'
 import GatewayConfig from '../popups/GatewayConfig.vue'
 import ProcessorConfig from '../popups/ProcessorConfig.vue'
 import QueueConfig from '../popups/QueueConfig.vue'
@@ -20,7 +21,28 @@ const draftConfig = reactive<DAGPipelineConfig>(JSON.parse(JSON.stringify(props.
 const activeNodeId = ref<string | null>(null)
 const showClientConfig = ref(false)
 const validationErrors = ref<string[]>([])
+const currentFileName = ref<string | null>(null)
 
+// ── Recent files (localStorage) ────────────────────────────────────────────
+interface RecentEntry { name: string; savedAt: string; content: string }
+const RECENT_KEY = 'qsim-recent-pipelines'
+
+function readRecent(): RecentEntry[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') } catch { return [] }
+}
+
+const recentFiles = ref<RecentEntry[]>(readRecent())
+
+function addToRecent(name: string, content: string) {
+  const updated = recentFiles.value.filter(e => e.name !== name)
+  updated.unshift({ name, savedAt: new Date().toISOString(), content })
+  recentFiles.value = updated.slice(0, 10)
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recentFiles.value))
+}
+
+const recentDisplay = computed(() => recentFiles.value.map(e => ({ name: e.name, savedAt: e.savedAt })))
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 function makeId(type: BuilderNodeType): string {
   return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 }
@@ -33,23 +55,126 @@ function labelFor(type: BuilderNodeType): string {
   }
 }
 
-onMounted(() => {
-  // Rehydrate nodes, preserving original IDs so successors map correctly
-  nodes.value = props.config.nodes.map((n, i) => ({
+// ── Config load (shared by onMounted and file open) ────────────────────────
+function loadConfig(cfg: DAGPipelineConfig) {
+  activeNodeId.value = null
+  showClientConfig.value = false
+  validationErrors.value = []
+
+  nodes.value = cfg.nodes.map((n, i) => ({
     id: n.id,
     type: n.config.type as BuilderNodeType,
     label: labelFor(n.config.type as BuilderNodeType),
-    x: 20 + i * 220,
-    y: 80,
+    x: n.x ?? (20 + i * 220),
+    y: n.y ?? 80,
   }))
 
-  // Rehydrate edges from successor lists
-  for (const n of props.config.nodes) {
+  edges.value = []
+  for (const n of cfg.nodes) {
     for (const s of n.successors) {
       edges.value.push({ from: n.id, to: s })
     }
   }
-})
+
+  Object.assign(draftConfig, JSON.parse(JSON.stringify(cfg)))
+}
+
+onMounted(() => loadConfig(props.config))
+
+// ── File operations ────────────────────────────────────────────────────────
+async function savePipeline() {
+  syncDraftNodes()
+  const json = JSON.stringify(draftConfig, null, 2)
+  let name = 'pipeline.json'
+
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'QSim Pipeline', accept: { 'application/json': ['.json'] } }],
+      })
+      name = handle.name
+      const writable = await handle.createWritable()
+      await writable.write(json)
+      await writable.close()
+    } catch (e: any) {
+      if (e.name === 'AbortError') return
+      validationErrors.value = [`Save failed: ${e.message}`]
+      return
+    }
+  } else {
+    // Fallback: trigger download
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  addToRecent(name, json)
+  currentFileName.value = name
+}
+
+async function openPipeline() {
+  let text: string
+  let name: string
+
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [handle] = await (window as any).showOpenFilePicker({
+        types: [{ description: 'QSim Pipeline', accept: { 'application/json': ['.json'] } }],
+      })
+      const file = await handle.getFile()
+      text = await file.text()
+      name = handle.name
+    } catch (e: any) {
+      if (e.name === 'AbortError') return
+      validationErrors.value = [`Open failed: ${e.message}`]
+      return
+    }
+  } else {
+    // Fallback: hidden file input
+    try {
+      text = await new Promise<string>((resolve, reject) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json'
+        input.onchange = async () => {
+          const f = input.files?.[0]
+          if (!f) { reject(new Error('No file selected')); return }
+          resolve(await f.text())
+          name = f.name  // captured via closure
+        }
+        input.oncancel = () => reject(new Error('AbortError'))
+        input.click()
+      })
+      name = 'pipeline.json'
+    } catch (e: any) {
+      if (e.message === 'AbortError') return
+      validationErrors.value = [`Open failed: ${e.message}`]
+      return
+    }
+  }
+
+  try {
+    loadConfig(JSON.parse(text!))
+    addToRecent(name!, text!)
+    currentFileName.value = name!
+  } catch {
+    validationErrors.value = ['Invalid pipeline file — could not parse JSON.']
+  }
+}
+
+function openRecent(index: number) {
+  const entry = recentFiles.value[index]
+  if (!entry) return
+  try {
+    loadConfig(JSON.parse(entry.content))
+    currentFileName.value = entry.name
+  } catch {
+    validationErrors.value = ['Could not load recent pipeline.']
+  }
+}
 
 // ── Canvas event handlers ──────────────────────────────────────────────────
 function onDrop(type: BuilderNodeType, x: number, y: number) {
@@ -92,6 +217,7 @@ function closePopup() {
 }
 
 // Keep draftConfig.nodes in sync. Successor lists come from the edges array.
+// All configs are stored as plain objects (via toRaw) to avoid reactive proxy issues.
 function syncDraftNodes() {
   const defaultCfg = createDefaultConfig()
   const processorDefaults = defaultCfg.nodes.filter(n => n.config.type === 'processor')
@@ -105,21 +231,22 @@ function syncDraftNodes() {
     const successors = edges.value.filter(e => e.from === bn.id).map(e => e.to)
 
     if (bn.type === 'gateway') {
-      return { id: bn.id, config: { type: 'gateway' }, successors }
+      return { id: bn.id, config: { type: 'gateway' }, successors, x: bn.x, y: bn.y }
     }
     if (bn.type === 'processor') {
       const existing = existingProcessors[pIdx]
       const fallback = processorDefaults[pIdx] ?? processorDefaults[0]
-      const config = existing?.config ?? { ...(fallback.config as object), name: 'Processor' }
+      const config = existing
+        ? { ...toRaw(existing.config) as typeof fallback.config }
+        : { ...(fallback.config as object), name: 'Processor' } as typeof fallback.config
       pIdx++
-      return { id: bn.id, config, successors }
+      return { id: bn.id, config, successors, x: bn.x, y: bn.y }
     }
-    // queue
     const existing = existingQueues[qIdx]
     const fallback = queueDefaults[qIdx] ?? queueDefaults[0]
-    const config = existing?.config ?? fallback.config
+    const config = { ...toRaw(existing ? existing.config : fallback.config) as typeof fallback.config }
     qIdx++
-    return { id: bn.id, config, successors }
+    return { id: bn.id, config, successors, x: bn.x, y: bn.y }
   })
   draftConfig.nodes = newNodes
 }
@@ -170,7 +297,8 @@ function applyPipeline() {
     return
   }
   validationErrors.value = []
-  emit('apply', JSON.parse(JSON.stringify(draftConfig)))
+  // toRaw unwraps the reactive proxy so JSON.stringify reads the live plain values
+  emit('apply', JSON.parse(JSON.stringify(toRaw(draftConfig))))
 }
 </script>
 
@@ -179,6 +307,14 @@ function applyPipeline() {
     <ToolboxPanel />
 
     <div class="canvas-area">
+      <FileMenuBar
+        :recent-files="recentDisplay"
+        :current-file-name="currentFileName"
+        @open="openPipeline"
+        @save="savePipeline"
+        @open-recent="openRecent"
+      />
+
       <div class="canvas-header">
         <div>
           <h2>Pipeline Builder</h2>

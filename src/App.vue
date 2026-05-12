@@ -9,8 +9,12 @@ const activeTab = ref<'builder' | 'simulation'>('builder')
 const config = reactive<DAGPipelineConfig>(createDefaultConfig())
 
 function onApplyBuilderConfig(newConfig: DAGPipelineConfig) {
-  Object.assign(config, newConfig)
   config.nodes.splice(0, config.nodes.length, ...newConfig.nodes)
+  config.tiers = newConfig.tiers
+  config.clients = newConfig.clients
+  config.timeStepMs = newConfig.timeStepMs
+  config.totalDurationMs = newConfig.totalDurationMs
+  config.batchSleepMs = newConfig.batchSleepMs
   activeTab.value = 'simulation'
 }
 </script>

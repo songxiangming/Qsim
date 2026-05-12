@@ -38,6 +38,8 @@ export interface PipelineNode {
   id: string
   config: NodeConfig
   successors: string[]
+  x?: number
+  y?: number
 }
 
 export interface DAGPipelineConfig {
