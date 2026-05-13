@@ -33,6 +33,7 @@ export interface ClientResults {
   totalSent: number
   totalSuccessful: number
   totalRejected: number
+  queueRejected: number
   p95LatencyMs: number
   p95E2eLatencyMs: number
 }

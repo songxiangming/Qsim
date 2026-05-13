@@ -5,6 +5,7 @@ interface ClientRecord {
   tierName: string
   totalSent: number
   totalRejected: number
+  queueRejected: number
   latencies: number[]
   e2eLatencies: number[]
 }
@@ -18,6 +19,7 @@ export class MetricsTracker {
       tierName,
       totalSent: 0,
       totalRejected: 0,
+      queueRejected: 0,
       latencies: [],
       e2eLatencies: [],
     })
@@ -29,6 +31,10 @@ export class MetricsTracker {
 
   recordRejected(clientId: string) {
     this.records.get(clientId)!.totalRejected++
+  }
+
+  recordQueueRejected(clientId: string) {
+    this.records.get(clientId)!.queueRejected++
   }
 
   recordLatency(clientId: string, latencyMs: number) {
@@ -51,6 +57,7 @@ export class MetricsTracker {
         totalSent: rec.totalSent,
         totalSuccessful: sorted.length,
         totalRejected: rec.totalRejected,
+        queueRejected: rec.queueRejected,
         p95LatencyMs: percentile(sorted, 0.95),
         p95E2eLatencyMs: percentile(sortedE2e, 0.95),
       })

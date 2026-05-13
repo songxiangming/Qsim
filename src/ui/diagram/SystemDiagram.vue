@@ -156,6 +156,12 @@ function edgePath(fromId: string, toId: string): string {
             </template>
             <template v-else-if="node.config.type === 'queue'">
               <div class="metric-sub">{{ metrics.nodeMetrics[node.id]?.depth ?? 0 }}/{{ node.config.maxDepth }}</div>
+              <div v-if="(metrics.nodeMetrics[node.id]?.totalRejected ?? 0) > 0" class="metric danger">
+                Dropped: {{ metrics.nodeMetrics[node.id]?.totalRejected }}
+              </div>
+              <div v-if="(metrics.nodeMetrics[node.id]?.rejectedThisTick ?? 0) > 0" class="metric-sub">
+                {{ metrics.nodeMetrics[node.id]?.rejectedThisTick }}/tick
+              </div>
             </template>
             <template v-else>
               <div class="metric">In-flight: {{ metrics.nodeMetrics[node.id]?.inFlight ?? 0 }}</div>

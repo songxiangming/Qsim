@@ -89,6 +89,7 @@ export function runSimulation(
 
         if (node.config.type === 'queue') {
           const q = comp as BoundedQueue
+          q.resetTickCounters()
           for (const successorId of node.successors) {
             const successor = components.get(successorId)!
             while (true) {
@@ -112,12 +113,15 @@ export function runSimulation(
           } else {
             for (const successorId of node.successors) {
               const successor = components.get(successorId)!
+              const successorNode = nodeMap.get(successorId)!
               for (const msg of output) {
                 if (msg.rejected) continue
                 if (!successor.receive(msg, t)) {
                   msg.rejected = true
-                  msg.rejectedReason = 'rate_limited'
-                  tracker.recordRejected(msg.clientId)
+                  msg.rejectedReason = successorNode.config.type === 'queue' ? 'queue_full' : 'rate_limited'
+                  // Both queue overflow and downstream TPS rejection are pipeline-side drops,
+                  // not gateway rejections — they belong in queueRejected, not totalRejected.
+                  tracker.recordQueueRejected(msg.clientId)
                 }
               }
             }

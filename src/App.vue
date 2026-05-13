@@ -39,8 +39,10 @@ function onApplyBuilderConfig(newConfig: DAGPipelineConfig) {
       </nav>
     </header>
     <main class="app-content">
-      <BuilderTab v-if="activeTab === 'builder'" :config="config" @apply="onApplyBuilderConfig" />
-      <SimulationTab v-else :config="config" />
+      <KeepAlive>
+        <BuilderTab v-if="activeTab === 'builder'" :config="config" @apply="onApplyBuilderConfig" />
+        <SimulationTab v-else :config="config" />
+      </KeepAlive>
     </main>
   </div>
 </template>
